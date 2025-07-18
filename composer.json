@@ -1,0 +1,26 @@
+{
+    "name": "liquidawesome/cs-fixer",
+    "version": "0.1.0",
+    "description": "Code standards enforcement",
+    "require": {
+        "php": "^8.4",
+        "friendsofphp/php-cs-fixer": "^3.84",
+        "kubawerlos/php-cs-fixer-custom-fixers": "^3.30",
+        "pedrotroller/php-cs-custom-fixer": "^2.33"
+    },
+    "autoload": {
+        "psr-4": {
+            "LiquidAwesome\\CsFixer\\": "src"
+        }
+    },
+    "scripts": {
+        "debug": [
+            "@putenv XDEBUG_MODE=debug",
+            "@putenv XDEBUG_CONFIG=\"client_host=10.211.55.2\"",
+            "@putenv XDEBUG_SESSION=\"PHPSTORM\"",
+            "@putenv PHP_IDE_CONFIG=\"serverName=app\"",
+            "@putenv PHP_CS_FIXER_ALLOW_XDEBUG=true",
+            "vendor/bin/php-cs-fixer"
+        ]
+    }
+}
