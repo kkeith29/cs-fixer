@@ -2,7 +2,7 @@
 
 namespace LiquidAwesome\CsFixer\Services;
 
-use ArrayIterator;
+use ArrayIterator, InvalidArgumentException;
 use LiquidAwesome\CsFixer\Services\UseFormatter\{
     ItemContainer,
     Prefix,
@@ -14,7 +14,7 @@ use LiquidAwesome\CsFixer\Services\UseFormatter\{
 use PhpCsFixer\Tokenizer\Token;
 use WeakMap;
 
-use function count, explode, iterator_to_array, str_repeat, strcmp, substr_count, usort;
+use function count, explode, iterator_to_array, mb_strlen, preg_split, str_repeat, strcmp, substr_count, trim, usort;
 
 use const PHP_EOL, PHP_INT_MAX, T_WHITESPACE;
 
@@ -36,6 +36,12 @@ class UseFormatterService
         for ($i = 0; $i < $count; $i++) {
             $part = $parts[$i];
             if ($i === $last) {
+                if ($alias === null) {
+                    $pieces = preg_split('@\s+as\s+@', $part, 2);
+                    if (count($pieces) === 2) {
+                        [$part, $alias] = $pieces;
+                    }
+                }
                 $item = $container->findOrCreate($part);
                 $item->use = true;
                 $item->alias = $part !== $alias ? $alias : null;
@@ -45,11 +51,15 @@ class UseFormatterService
         }
     }
 
-    protected function addStatementByType(StatementType $type, string $statement, ?string $alias): void
+    protected function getContainerForType(StatementType $type): ItemContainer
     {
         $this->containers ??= new WeakMap();
-        $container = $this->containers[$type] ??= new ItemContainer();
-        $this->addStatement($container, $statement, $alias);
+        return $this->containers[$type] ??= new ItemContainer();
+    }
+
+    protected function addStatementByType(StatementType $type, string $statement, ?string $alias): void
+    {
+        $this->addStatement($this->getContainerForType($type), $statement, $alias);
     }
 
     public function addClassStatement(string $statement, ?string $alias): void
@@ -68,6 +78,66 @@ class UseFormatterService
     }
 
     /**
+     * Expand statement into multiple statements if comma is found
+     */
+    protected function expandStatements(ItemContainer $container, string $statement, string $prefix = ''): void
+    {
+        foreach (explode(',', $statement) as $item) {
+            $item = trim($item);
+            $this->addStatement($container, $prefix . $item, null);
+        }
+    }
+
+    /**
+     * Parse statement and add to proper container
+     *
+     * Determines type of use statement, strips all extra whitespace, and expands any bracketed groups found into
+     * multiple statements.
+     */
+    protected function parseStatement(string $statement): void
+    {
+        if (preg_match('#^use\s+(const|function)?(\s+)?#', $statement, $match) !== 1) {
+            throw new InvalidArgumentException('Use prefix not found in statement');
+        }
+        $type = match ($match[1] ?? null) {
+            'const' => StatementType::Constant,
+            'function' => StatementType::Function,
+            default => StatementType::ClassLike
+        };
+        $statement = str_replace(["\r\n", "\r", "\n", "\t"], '', substr($statement, strlen($match[0])));
+        $container = $this->getContainerForType($type);
+        if (($bpos = strpos($statement, '{')) !== false) {
+            if (!str_ends_with($statement, '}')) {
+                throw new InvalidArgumentException('Invalid bracket usage');
+            }
+            $prefix = trim(substr($statement, 0, $bpos - 1)) . '\\';
+            $statement = substr($statement, $bpos + 1, (strlen($statement) - $bpos - 2));
+            $this->expandStatements($container, $statement, $prefix);
+            return;
+        }
+        $this->expandStatements($container, $statement);
+    }
+
+    /**
+     * Parse code block into list of statements grouped by type
+     */
+    public function addStatementsFromCodeBlock(string $code): void
+    {
+        $code = trim($code);
+        if (mb_strlen($code) === 0) {
+            throw new InvalidArgumentException('No content provided');
+        }
+        if (!str_contains($code, ';')) {
+            throw new InvalidArgumentException('No statements found which end with semicolon');
+        }
+        while (($pos = strpos($code, ';')) !== false) {
+            $statement = trim(substr($code, 0, $pos));
+            $this->parseStatement($statement);
+            $code = substr($code, $pos + 1);
+        }
+    }
+
+    /**
      * Gets grouped items from container and sorts them by their name or priority
      *
      * Items are sorted by their fully qualified name (if available) or their namespace. If two items like a FQN and
@@ -76,8 +146,11 @@ class UseFormatterService
      * @return array<int, \LiquidAwesome\CsFixer\Services\UseFormatter\StatementInterface>
      * @throws \Exception
      */
-    protected function getOrderedItems(ItemContainer $container, int $min_sibling_group_count, int $max_group_depth): array
-    {
+    protected function getOrderedItems(
+        ItemContainer $container,
+        int $min_sibling_group_count,
+        int $max_group_depth
+    ): array {
         $items = iterator_to_array($container->getGroupedItems($min_sibling_group_count, $max_group_depth), false);
         // sort items by FQN or namespace, then by priority. if FQN and namespace match, we sort by individual
         // priority so FQN will show before namespace group
@@ -188,5 +261,57 @@ class UseFormatterService
             $i++;
         }
         return $tokens;
+    }
+
+    /**
+     * Create properly formatted output for a container
+     *
+     * Gets all renderable items ordered alphabetically and sorted according to their type (Single Fully Qualified Name,
+     * Comma Separated Group of Fully Qualified Names, and Bracketed Namespace Grouping). Output is generated for each
+     * type and concatenated together with a new line.
+     *
+     * @throws \Exception
+     */
+    protected function renderStatementsForType(
+        StatementType $type,
+        int $max_line_length,
+        int $min_sibling_group_count,
+        int $max_group_depth
+    ): ?string {
+        if (!isset($this->containers[$type])) {
+            return null;
+        }
+        $items = $this->getOrderedItems($this->containers[$type], $min_sibling_group_count, $max_group_depth);
+        $items = $this->groupSingleStatements($items);
+        $prefix = new Prefix($type);
+        $output = array_map(
+            fn(StatementInterface $statement): string => $statement->toString($prefix, $max_line_length),
+            $items
+        );
+        return implode(PHP_EOL, $output);
+    }
+
+    /**
+     * Generate PER Coding Style 2.0 formatted use statement code block
+     *
+     * The formatting is opinionated, but the specifics follow the standard.
+     *
+     * @throws \Exception
+     */
+    public function getCode(
+        array $type_order = [StatementType::ClassLike, StatementType::Function, StatementType::Constant],
+        int $max_line_length = PHP_INT_MAX,
+        int $min_sibling_group_count = 2,
+        int $max_group_depth = 2
+    ): string {
+        $groups = [];
+        foreach ($type_order as $type) {
+            $code = $this->renderStatementsForType($type, $max_line_length, $min_sibling_group_count, $max_group_depth);
+            if ($code === null) {
+                continue;
+            }
+            $groups[] = $code;
+        }
+        return implode(str_repeat(PHP_EOL, 2), $groups);
     }
 }

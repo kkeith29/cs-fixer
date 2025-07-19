@@ -20,7 +20,7 @@ use const PHP_EOL, T_USE, T_WHITESPACE;
 
 class ImportFormatterFixer implements FixerInterface
 {
-    public const string NAME = 'LiquidAwesome/import-formatter';
+    public const string NAME = 'LiquidAwesome/import_formatter';
 
     public function isCandidate(Tokens $tokens): bool
     {
@@ -73,7 +73,7 @@ class ImportFormatterFixer implements FixerInterface
             }
         }
 
-        $index = array_slice($use_declarations, -1)[0]->getEndIndex() + 1;
+        $index = array_slice($use_declarations, -1)[0]->end_index + 1;
         $service_tokens = $service->getTokens(max_line_length: 120);
         $tokens->insertAt($index, $service_tokens);
         $index += count($service_tokens);

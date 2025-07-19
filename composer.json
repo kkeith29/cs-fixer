@@ -10,7 +10,8 @@
     },
     "autoload": {
         "psr-4": {
-            "LiquidAwesome\\CsFixer\\": "src"
+            "LiquidAwesome\\CsFixer\\": "src",
+            "LiquidAwesome\\CsFixer\\Tests\\": "tests/src"
         }
     },
     "scripts": {
@@ -22,5 +23,8 @@
             "@putenv PHP_CS_FIXER_ALLOW_XDEBUG=true",
             "vendor/bin/php-cs-fixer"
         ]
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^12.2"
     }
 }
