@@ -2,9 +2,9 @@
 
 namespace LiquidAwesome\CsFixer\Tests\Services;
 
-use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use InvalidArgumentException;
 use LiquidAwesome\CsFixer\Services\{UseFormatterService, UseFormatter\StatementType};
+use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 
 use const PHP_INT_MAX;
@@ -17,14 +17,14 @@ class UseFormatterServiceTest extends TestCase
     }
 
     #[Test]
-    public function format_throws_exception_with_no_input(): void
+    public function adding_statements_from_code_throws_exception_with_no_input(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->newService()->addStatementsFromCodeBlock('');
     }
 
     #[Test]
-    public function format_throws_exception_with_no_semicolon_found(): void
+    public function adding_statements_from_code_throws_exception_with_no_semicolon_found(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->newService()->addStatementsFromCodeBlock('');
@@ -257,10 +257,10 @@ class UseFormatterServiceTest extends TestCase
     public function getCode_returns_expected_output(
         string $input,
         string $expected,
-        int    $max_line_length = PHP_INT_MAX,
-        int    $min_sibling_group_count = 2,
-        int    $max_group_depth = 2,
-        array  $type_order = [StatementType::ClassLike, StatementType::Function, StatementType::Constant]
+        int $max_line_length = PHP_INT_MAX,
+        int $min_sibling_group_count = 2,
+        int $max_group_depth = 2,
+        array $type_order = [StatementType::ClassLike, StatementType::Function, StatementType::Constant]
     ): void {
         $service = $this->newService();
         $service->addStatementsFromCodeBlock($input);
@@ -273,10 +273,10 @@ class UseFormatterServiceTest extends TestCase
     public function getTokens_returns_expected_output(
         string $input,
         string $expected,
-        int    $max_line_length = PHP_INT_MAX,
-        int    $min_sibling_group_count = 2,
-        int    $max_group_depth = 2,
-        array  $type_order = [StatementType::ClassLike, StatementType::Function, StatementType::Constant]
+        int $max_line_length = PHP_INT_MAX,
+        int $min_sibling_group_count = 2,
+        int $max_group_depth = 2,
+        array $type_order = [StatementType::ClassLike, StatementType::Function, StatementType::Constant]
     ): void {
         $service = $this->newService();
         $service->addStatementsFromCodeBlock($input);

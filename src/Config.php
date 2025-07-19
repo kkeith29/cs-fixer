@@ -33,7 +33,13 @@ class Config extends \PhpCsFixer\Config
                 'automatic-argument-merge' => false,
                 'inline-attributes' => false
             ],
-            'no_unused_imports' => true
+            'no_unused_imports' => true,
+            'no_extra_blank_lines' => [
+                'tokens' => [
+                    'attribute', 'break', 'case', 'comma', 'continue', 'curly_brace_block', 'default', 'extra',
+                    'parenthesis_brace_block', 'return', 'square_brace_block', 'switch', 'throw'
+                ]
+            ]
         ]);
     }
 }

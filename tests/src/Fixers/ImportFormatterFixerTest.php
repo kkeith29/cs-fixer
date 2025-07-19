@@ -3,9 +3,9 @@
 namespace LiquidAwesome\CsFixer\Tests\Fixers;
 
 use LiquidAwesome\CsFixer\Fixers\ImportFormatterFixer;
-use PhpCsFixer\Tokenizer\Tokens;
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
+use PhpCsFixer\Tokenizer\Tokens;
 use SplFileInfo;
 
 class ImportFormatterFixerTest extends TestCase
